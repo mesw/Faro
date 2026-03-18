@@ -7,35 +7,33 @@ Item {
 
     required property GameEngine engine
 
+    // Slot IDs for coordinate mapping (used by GameView for FlyingCard animation)
+    readonly property alias loserSlot:  loserSlotItem
+    readonly property alias winnerSlot: winnerSlotItem
+    readonly property alias talonSlot:  talonSlotItem
+
     Row {
         anchors.centerIn: parent
         spacing: 20
 
-        // Soda card
+        // ── SOUCHE ────────────────────────────────────────────────────────────
         Column {
             spacing: 4
             opacity: engine.sodaCard ? 1 : 0.3
 
             HoverHandler { id: soucheHover }
-            ToolTip {
-                visible: soucheHover.hovered
-                text: "The first card dealt from the deck — bets on this rank are void for the game"
-                delay: 600
-            }
+            ToolTip { visible: soucheHover.hovered; delay: 600
+                text: "The first card dealt from the deck — bets on this rank are void for the game" }
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "SOUCHE"
-                font.family: root.bodyFont
-                font.pixelSize: 10
-                font.letterSpacing: 2
+                font.family: root.bodyFont; font.pixelSize: 10; font.letterSpacing: 2
                 color: root.goldDim
             }
 
             Card {
-                id: sodaCardVisual
-                width: 70
-                height: 100
+                width: 70; height: 100
                 rank: engine.sodaCard ? engine.sodaCard.rank : 1
                 suit: engine.sodaCard ? engine.sodaCard.suit : 0
                 faceUp: engine.sodaCard !== null
@@ -43,37 +41,29 @@ Item {
             }
         }
 
-        // Discard / loser pile
+        // ── PERDANT ───────────────────────────────────────────────────────────
         Column {
             spacing: 4
 
             HoverHandler { id: perdantHover }
-            ToolTip {
-                visible: perdantHover.hovered
-                text: "The first card of each pair — bets on this rank lose"
-                delay: 600
-            }
+            ToolTip { visible: perdantHover.hovered; delay: 600
+                text: "The first card of each pair — bets on this rank lose" }
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "PERDANT"
-                font.family: root.bodyFont
-                font.pixelSize: 10
-                font.letterSpacing: 2
+                font.family: root.bodyFont; font.pixelSize: 10; font.letterSpacing: 2
                 color: root.cardRed
             }
 
             Item {
+                id: loserSlotItem
                 width: 70; height: 100
 
-                // Empty slot indicator
                 Rectangle {
-                    anchors.fill: parent
-                    radius: 6
+                    anchors.fill: parent; radius: 6
                     color: "transparent"
-                    border.color: root.cardRed
-                    border.width: 1
-                    opacity: 0.3
+                    border.color: root.cardRed; border.width: 1; opacity: 0.3
                     visible: !engine.loserCard
                 }
 
@@ -84,30 +74,35 @@ Item {
                     suit: engine.loserCard ? engine.loserCard.suit : 0
                     faceUp: engine.loserCard !== null
                     visible: engine.loserCard !== null
+                    opacity: 0
 
-                    // Slide-in animation
-                    x: 0
-                    Behavior on visible {
-                        SequentialAnimation {
-                            PropertyAction { target: loserCardVisual; property: "x"; value: -80 }
-                            PropertyAction { target: loserCardVisual; property: "opacity"; value: 0 }
-                            NumberAnimation { target: loserCardVisual; property: "x"; to: 0; duration: 300; easing.type: Easing.OutCubic }
+                    Connections {
+                        target: engine
+                        function onCardDealt(cardRank, cardSuit, isWinner) {
+                            if (!isWinner) {
+                                loserCardVisual.opacity = 0
+                                loserSlideAnim.restart()
+                            }
+                        }
+                    }
+
+                    SequentialAnimation {
+                        id: loserSlideAnim
+                        PropertyAction { target: loserCardVisual; property: "x"; value: -80 }
+                        PropertyAction { target: loserCardVisual; property: "opacity"; value: 0 }
+                        ParallelAnimation {
+                            NumberAnimation { target: loserCardVisual; property: "x"; to: 0; duration: 320; easing.type: Easing.OutCubic }
                             NumberAnimation { target: loserCardVisual; property: "opacity"; to: 1; duration: 200 }
                         }
                     }
                 }
 
-                // Red glow for loser
+                // Red glow
                 Rectangle {
-                    anchors.fill: parent
-                    anchors.margins: -4
-                    radius: 10
-                    color: "transparent"
-                    border.color: root.cardRed
-                    border.width: 2
+                    anchors.fill: parent; anchors.margins: -4; radius: 10
+                    color: "transparent"; border.color: root.cardRed; border.width: 2
                     opacity: engine.loserCard ? 0.4 : 0
                     visible: engine.gameState === GameEngine.TurnResult
-
                     SequentialAnimation on opacity {
                         loops: 3
                         running: engine.gameState === GameEngine.TurnResult && engine.loserCard !== null
@@ -118,73 +113,59 @@ Item {
             }
         }
 
-        // Deck (remaining cards)
+        // ── TALON ─────────────────────────────────────────────────────────────
         Column {
             spacing: 4
 
             HoverHandler { id: talonHover }
-            ToolTip {
-                visible: talonHover.hovered
-                text: "The remaining undealt cards in the deck"
-                delay: 600
-            }
+            ToolTip { visible: talonHover.hovered; delay: 600
+                text: "The remaining undealt cards in the deck" }
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "TALON"
-                font.family: root.bodyFont
-                font.pixelSize: 10
-                font.letterSpacing: 2
+                font.family: root.bodyFont; font.pixelSize: 10; font.letterSpacing: 2
                 color: root.goldDim
             }
 
             Item {
+                id: talonSlotItem
                 width: 70; height: 100
 
-                // Stacked deck visual
                 Repeater {
                     model: Math.min(engine.cardsRemaining, 5)
                     Card {
-                        x: -index * 0.5
-                        y: -index * 0.5
+                        x: -index * 0.5; y: -index * 0.5
                         width: 70; height: 100
-                        rank: 1; suit: 0
-                        faceUp: false
+                        rank: 1; suit: 0; faceUp: false
                     }
                 }
             }
         }
 
-        // Winner card
+        // ── GAGNANT ───────────────────────────────────────────────────────────
         Column {
             spacing: 4
 
             HoverHandler { id: gagnantHover }
-            ToolTip {
-                visible: gagnantHover.hovered
-                text: "The second card of each pair — bets on this rank win"
-                delay: 600
-            }
+            ToolTip { visible: gagnantHover.hovered; delay: 600
+                text: "The second card of each pair — bets on this rank win" }
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "GAGNANT"
-                font.family: root.bodyFont
-                font.pixelSize: 10
-                font.letterSpacing: 2
+                font.family: root.bodyFont; font.pixelSize: 10; font.letterSpacing: 2
                 color: root.winGreen
             }
 
             Item {
+                id: winnerSlotItem
                 width: 70; height: 100
 
                 Rectangle {
-                    anchors.fill: parent
-                    radius: 6
+                    anchors.fill: parent; radius: 6
                     color: "transparent"
-                    border.color: root.winGreen
-                    border.width: 1
-                    opacity: 0.3
+                    border.color: root.winGreen; border.width: 1; opacity: 0.3
                     visible: !engine.winnerCard
                 }
 
@@ -195,28 +176,35 @@ Item {
                     suit: engine.winnerCard ? engine.winnerCard.suit : 0
                     faceUp: engine.winnerCard !== null
                     visible: engine.winnerCard !== null
+                    opacity: 0
 
-                    Behavior on visible {
-                        SequentialAnimation {
-                            PropertyAction { target: winnerCardVisual; property: "x"; value: -80 }
-                            PropertyAction { target: winnerCardVisual; property: "opacity"; value: 0 }
-                            NumberAnimation { target: winnerCardVisual; property: "x"; to: 0; duration: 300; easing.type: Easing.OutCubic }
+                    Connections {
+                        target: engine
+                        function onCardDealt(cardRank, cardSuit, isWinner) {
+                            if (isWinner) {
+                                winnerCardVisual.opacity = 0
+                                winnerSlideAnim.restart()
+                            }
+                        }
+                    }
+
+                    SequentialAnimation {
+                        id: winnerSlideAnim
+                        PropertyAction { target: winnerCardVisual; property: "x"; value: -80 }
+                        PropertyAction { target: winnerCardVisual; property: "opacity"; value: 0 }
+                        ParallelAnimation {
+                            NumberAnimation { target: winnerCardVisual; property: "x"; to: 0; duration: 320; easing.type: Easing.OutCubic }
                             NumberAnimation { target: winnerCardVisual; property: "opacity"; to: 1; duration: 200 }
                         }
                     }
                 }
 
-                // Green glow for winner
+                // Green glow
                 Rectangle {
-                    anchors.fill: parent
-                    anchors.margins: -4
-                    radius: 10
-                    color: "transparent"
-                    border.color: root.winGreen
-                    border.width: 2
+                    anchors.fill: parent; anchors.margins: -4; radius: 10
+                    color: "transparent"; border.color: root.winGreen; border.width: 2
                     opacity: engine.winnerCard ? 0.4 : 0
                     visible: engine.gameState === GameEngine.TurnResult
-
                     SequentialAnimation on opacity {
                         loops: 3
                         running: engine.gameState === GameEngine.TurnResult && engine.winnerCard !== null
@@ -228,25 +216,19 @@ Item {
         }
     }
 
-    // Split indicator
+    // ── Doublet indicator ─────────────────────────────────────────────────────
     Rectangle {
-        anchors.top: parent.bottom
-        anchors.topMargin: -8
+        anchors.top: parent.bottom; anchors.topMargin: -8
         anchors.horizontalCenter: parent.horizontalCenter
-        width: splitText.width + 24
-        height: 28
-        radius: 14
+        width: splitText.width + 24; height: 28; radius: 14
         color: root.copperAccent
         visible: engine.loserCard && engine.winnerCard &&
                  engine.loserCard.rank === engine.winnerCard.rank
+        opacity: 0
 
         HoverHandler { id: doubletHover }
-        ToolTip {
-            visible: doubletHover.hovered
-            text: "Both cards share the same rank — the banker takes half of all bets on this rank"
-            delay: 600
-        }
-        opacity: 0
+        ToolTip { visible: doubletHover.hovered; delay: 600
+            text: "Both cards share the same rank — the banker takes half of all bets on this rank" }
 
         NumberAnimation on opacity {
             from: 0; to: 1; duration: 400
@@ -258,10 +240,7 @@ Item {
             id: splitText
             anchors.centerIn: parent
             text: "✦ DOUBLET ✦"
-            font.family: root.bodyFont
-            font.pixelSize: 12
-            font.letterSpacing: 2
-            font.bold: true
+            font.family: root.bodyFont; font.pixelSize: 12; font.letterSpacing: 2; font.bold: true
             color: root.shadowBlack
         }
     }

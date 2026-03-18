@@ -12,6 +12,7 @@ find_package(Qt6 6.8 REQUIRED COMPONENTS
     Quick
     QuickControls2
     Multimedia
+    WebSockets
     ShaderTools
 )
 
@@ -27,6 +28,12 @@ qt_add_executable(FaroGame
     src/playermodel.h
     src/casekeeper.cpp
     src/casekeeper.h
+    src/appsettings.cpp
+    src/appsettings.h
+    src/aiplayer.cpp
+    src/aiplayer.h
+    src/multiplayerclient.cpp
+    src/multiplayerclient.h
 )
 
 qt_add_qml_module(FaroGame
@@ -43,9 +50,15 @@ qt_add_qml_module(FaroGame
         qml/components/CardFan.qml
         qml/components/ParticleOverlay.qml
         qml/components/GoldText.qml
+        qml/components/PlayerPanel.qml
+        qml/components/FlyingCard.qml
+        qml/components/FlyingChip.qml
+        qml/components/LeaderboardPanel.qml
+        qml/components/InitialsEntry.qml
         qml/views/TitleScreen.qml
         qml/views/GameView.qml
         qml/views/ResultsView.qml
+        qml/views/SettingsView.qml
     RESOURCES
         resources/felt_texture.png
         resources/wood_texture.png
@@ -68,6 +81,7 @@ target_link_libraries(FaroGame PRIVATE
     Qt6::Quick
     Qt6::QuickControls2
     Qt6::Multimedia
+    Qt6::WebSockets
 )
 
 # Platform-specific settings

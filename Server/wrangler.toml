@@ -1,4 +1,4 @@
-name = "qt-multiplayer-demo"
+name = "pharaon-server"
 main = "src/index.ts"
 compatibility_date = "2025-10-08"
 
@@ -6,7 +6,11 @@ compatibility_date = "2025-10-08"
 tag = "v1"
 new_sqlite_classes = ["CounterRoom"]
 
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["PharaonRoom"]
+
 [durable_objects]
 bindings = [
-  { name = "COUNTER_ROOM", class_name = "CounterRoom" }
+  { name = "PHARAON_ROOM", class_name = "PharaonRoom" }
 ]
