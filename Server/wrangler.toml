@@ -1,0 +1,12 @@
+name = "qt-multiplayer-demo"
+main = "src/index.ts"
+compatibility_date = "2025-10-08"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["CounterRoom"]
+
+[durable_objects]
+bindings = [
+  { name = "COUNTER_ROOM", class_name = "CounterRoom" }
+]
