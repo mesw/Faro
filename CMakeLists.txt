@@ -51,6 +51,7 @@ qt_add_qml_module(FaroGame
         qml/components/ParticleOverlay.qml
         qml/components/GoldText.qml
         qml/components/PlayerPanel.qml
+        qml/components/PlayerTray.qml
         qml/components/FlyingCard.qml
         qml/components/FlyingChip.qml
         qml/components/LeaderboardPanel.qml
@@ -88,7 +89,8 @@ target_link_libraries(FaroGame PRIVATE
 if(EMSCRIPTEN)
     target_link_options(FaroGame PRIVATE
         "SHELL:-s ASYNCIFY=1"
-        "SHELL:-s TOTAL_MEMORY=128MB"
+        "SHELL:-s TOTAL_MEMORY=256MB"
+        "SHELL:-s ALLOW_MEMORY_GROWTH=1"
         "SHELL:-s EXPORTED_RUNTIME_METHODS=['UTF8ToString','stringToUTF8']"
     )
 endif()

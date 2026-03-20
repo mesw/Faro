@@ -68,7 +68,7 @@ Item {
                 var bets = engine.currentBets
                 return bets.hasOwnProperty(String(cardRank))
             }
-            readonly property bool isDead: engine.cardsShownForRank(cardRank) >= 4
+            readonly property bool isDead: { engine.cardsRemaining; return engine.cardsShownForRank(cardRank) >= 4 }
             readonly property int  shownCount: engine.cardsShownForRank(cardRank)
 
             // Layout card (always spades, always face-up)
@@ -133,17 +133,7 @@ Item {
                 z: 4
 
                 Repeater {
-                    model: {
-                        var allBets = engine.allPlayerBets
-                        var matches = []
-                        for (var i = 0; i < allBets.length; ++i) {
-                            var b = allBets[i]
-                            if (b.rank === cardSlot.cardRank && b.seatIndex > 0) {
-                                matches.push(b)
-                            }
-                        }
-                        return matches
-                    }
+                    model: { engine.allPlayerBets; return engine.aiBetsForRank(cardSlot.cardRank) }
 
                     delegate: Rectangle {
                         required property var modelData

@@ -98,6 +98,49 @@ cmake .. \
 cmake --build . --parallel
 ```
 
+## Multiplayer Server
+
+The multiplayer backend is a **Cloudflare Durable Object** (`Server/`) that manages game rooms over WebSockets.
+
+### Prerequisites
+
+- Node.js
+- A Cloudflare account with the **Workers Paid plan** (required for Durable Objects)
+
+### Build & Deploy
+
+```bash
+cd Server
+npm install
+
+# Authenticate with Cloudflare (one-time)
+npx wrangler login
+
+# Local development
+npm run dev
+# Worker available at http://localhost:8787
+
+# Deploy to production
+npm run deploy
+```
+
+After deploying, Wrangler prints the Worker URL:
+```
+https://pharaon-server.<your-subdomain>.workers.dev
+```
+
+Connect the Qt client via `wss://pharaon-server.<your-subdomain>.workers.dev`.
+
+> **Note:** `wrangler.toml` contains a `v1` migration referencing `CounterRoom` (a removed class). If you hit a migration error on first deploy, delete that block:
+> ```toml
+> # Remove this block if deploying fresh:
+> [[migrations]]
+> tag = "v1"
+> new_sqlite_classes = ["CounterRoom"]
+> ```
+
+---
+
 ## How to Play Faro
 
 1. **Take a Seat** — Start from the title screen

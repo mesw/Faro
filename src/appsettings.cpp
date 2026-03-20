@@ -65,7 +65,7 @@ void AppSettings::load()
 {
     QSettings settings("QtShowcase", "Pharaon");
     settings.beginGroup("Pharaon");
-    setBettingTimerMs(settings.value("bettingTimerMs", 20000).toInt());
+    setBettingTimerMs(settings.value("bettingTimerMs", 5000).toInt());
     setAiPlayerCount(settings.value("aiPlayerCount",  2).toInt());
     setServerUrl(settings.value("serverUrl", "").toString());
     setStartingChips(settings.value("startingChips", 100).toInt());
@@ -74,7 +74,7 @@ void AppSettings::load()
 
 void AppSettings::resetToDefaults()
 {
-    setBettingTimerMs(20000);
+    setBettingTimerMs(5000);
     setAiPlayerCount(2);
     setServerUrl(QString());
     setStartingChips(100);

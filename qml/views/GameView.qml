@@ -13,25 +13,39 @@ Item {
     property int  selectedBetAmount: 5
     property bool contreMode:        false
 
-    // ── Auto-advance after result display ────────────────────────────────────
-    Timer {
-        id: autoAdvanceTimer
-        interval: 3000; repeat: false
-        onTriggered: {
-            engine.nextBettingRound()
-            if (engine.gameState === GameEngine.GameOver)
-                gameRoot.gameFinished()
-        }
+    // ── Object pools for flying animations ────────────────────────────────────
+    property var _cardPool: []
+    property var _chipPool: []
+
+    Component { id: flyingCardComp; FlyingCard {} }
+    Component { id: flyingChipComp; FlyingChip {} }
+
+    Component.onCompleted: {
+        for (var i = 0; i < 2; i++)
+            _cardPool.push(flyingCardComp.createObject(flyingCardLayer, {visible: false}))
+        for (var j = 0; j < 8; j++)
+            _chipPool.push(flyingChipComp.createObject(flyingChipLayer, {visible: false}))
+    }
+
+    function acquireCard() {
+        for (var i = 0; i < _cardPool.length; i++)
+            if (!_cardPool[i].visible) return _cardPool[i]
+        var o = flyingCardComp.createObject(flyingCardLayer, {visible: false})
+        _cardPool.push(o)
+        return o
+    }
+
+    function acquireChip() {
+        for (var i = 0; i < _chipPool.length; i++)
+            if (!_chipPool[i].visible) return _chipPool[i]
+        var o = flyingChipComp.createObject(flyingChipLayer, {visible: false})
+        _chipPool.push(o)
+        return o
     }
 
     Connections {
         target: engine
         function onGameStateChanged() {
-            if (engine.gameState === GameEngine.TurnResult)
-                autoAdvanceTimer.restart()
-            else
-                autoAdvanceTimer.stop()
-
             if (engine.gameState === GameEngine.GameOver)
                 gameRoot.gameFinished()
         }
@@ -148,33 +162,35 @@ Item {
         }
     }
 
+    // ── Player tray (bottom strip) ────────────────────────────────────────────
+    PlayerTray {
+        id: playerTray
+        anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
+        engine: gameRoot.engine
+        visible: engine.players.length > 1
+    }
+
+    // Helper: map a seat's purse center into flyingChipLayer coordinates
+    function getPurseCenter(seatIndex) {
+        var pt = playerTray.purseCenter(seatIndex)
+        return playerTray.mapToItem(flyingChipLayer, pt.x, pt.y)
+    }
+
     // ── Main game area ────────────────────────────────────────────────────────
     RowLayout {
         anchors.fill: parent
         anchors.topMargin: 60
-        anchors.margins: 16
+        anchors.leftMargin: 16
+        anchors.rightMargin: 16
+        anchors.bottomMargin: (engine.players.length > 1 ? playerTray.height : 0) + 16
         spacing: 16
 
-        // ── Left: Tableau + Player Panel ──────────────────────────────────────
-        Column {
+        // ── Left: Tableau ─────────────────────────────────────────────────────
+        CaseKeeper {
+            id: caseKeeperPanel
             Layout.preferredWidth: 180
             Layout.fillHeight: true
-            spacing: 8
-
-            CaseKeeper {
-                id: caseKeeperPanel
-                width: parent.width
-                height: parent.height * 0.62
-                engine: gameRoot.engine
-            }
-
-            PlayerPanel {
-                id: playerPanel
-                width: parent.width
-                height: parent.height * 0.38 - 8
-                engine: gameRoot.engine
-                visible: engine.players.length > 1
-            }
+            engine: gameRoot.engine
         }
 
         // ── Center: Faro Table ────────────────────────────────────────────────
@@ -205,7 +221,7 @@ Item {
                     engine: gameRoot.engine
                     betAmount: gameRoot.selectedBetAmount
                     contre: gameRoot.contreMode
-                    enabled: engine.gameState === GameEngine.Betting
+                    enabled: engine.gameState !== GameEngine.GameOver
                 }
 
                 DealerBox {
@@ -335,10 +351,11 @@ Item {
 
                 Item { Layout.fillWidth: true; Layout.fillHeight: true }
 
-                // DONNER
+                // DONNER — hidden in autopilot mode
                 Rectangle {
                     id: donnerBtn
                     Layout.fillWidth: true; height: 52; radius: 8
+                    visible: !engine.autopilot
                     readonly property bool isActive: engine.gameState === GameEngine.Betting
                     gradient: Gradient {
                         GradientStop { position: 0; color: donnerBtn.isActive ? root.goldAccent : "#22ffffff" }
@@ -369,14 +386,6 @@ Item {
                     color: "#1c08050f"; border.color: root.goldDim; border.width: 0.5; clip: true
                     opacity: engine.turnResultText.length > 0 ? 1.0 : 0.0
                     Behavior on opacity { NumberAnimation { duration: 350 } }
-
-                    Connections {
-                        target: engine
-                        function onTurnResultTextChanged() {
-                            if (engine.turnResultText.length > 0)
-                                countdownAnim.restart()
-                        }
-                    }
 
                     Column {
                         anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right
@@ -435,17 +444,6 @@ Item {
                         }
                     }
 
-                    // Countdown bar
-                    Rectangle {
-                        anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right
-                        height: 3; color: root.goldDim; opacity: 0.25
-                        Rectangle {
-                            id: countdownBar
-                            anchors.top: parent.top; anchors.bottom: parent.bottom; anchors.left: parent.left
-                            radius: 1; color: root.goldAccent; opacity: 0.7; width: parent.width
-                            NumberAnimation on width { id: countdownAnim; from: countdownBar.parent.width; to: 0; duration: 3000; easing.type: Easing.Linear }
-                        }
-                    }
                 }
 
                 Item { Layout.fillWidth: true; Layout.preferredHeight: 6 }
@@ -474,79 +472,79 @@ Item {
                                 destSlot.width  / 2 - 35,
                                 destSlot.height / 2 - 50)
 
-            var comp = Qt.createComponent("../components/FlyingCard.qml")
-            if (comp.status === Component.Ready) {
-                comp.createObject(flyingCardLayer, {
-                    fromX: talonPos.x, fromY: talonPos.y,
-                    toX:   destPos.x,  toY:   destPos.y,
-                    cardRank: cardRank, cardSuit: cardSuit
-                })
-            }
+            var card = acquireCard()
+            card.fromX = talonPos.x; card.fromY = talonPos.y
+            card.toX = destPos.x; card.toY = destPos.y
+            card.cardRank = cardRank; card.cardSuit = cardSuit
+            card.visible = true
         }
 
         function onBetPlaced(seatIndex, rank, amount, contre) {
             if (seatIndex !== 0 || rank < 1) return
-            // Chip flies from MISE row to table slot
+            // Chip flies from human purse in tray to table slot
             var slotPos = faroTable.slotCenter(rank)
             var slotPt  = faroTable.mapToItem(flyingChipLayer, slotPos.x - 18, slotPos.y - 18)
-            var fromPt  = playerChipsLabel.mapToItem(flyingChipLayer, 0, 0)
+            var fromPt  = engine.players.length > 0
+                          ? getPurseCenter(0)
+                          : playerChipsLabel.mapToItem(flyingChipLayer, 0, 0)
 
-            var comp = Qt.createComponent("../components/FlyingChip.qml")
-            if (comp.status === Component.Ready) {
-                comp.createObject(flyingChipLayer, {
-                    fromX: fromPt.x, fromY: fromPt.y,
-                    toX: slotPt.x,  toY: slotPt.y,
-                    amount: amount, contre: contre
-                })
-            }
+            var chip = acquireChip()
+            chip.fromX = fromPt.x; chip.fromY = fromPt.y
+            chip.toX = slotPt.x; chip.toY = slotPt.y
+            chip.amount = amount; chip.contre = contre; chip.isWin = false
+            chip.visible = true
         }
 
         function onAiBetPlaced(seatIndex, rank, amount, contre) {
             if (rank < 1) return
             var slotPos = faroTable.slotCenter(rank)
             var slotPt  = faroTable.mapToItem(flyingChipLayer, slotPos.x - 9, slotPos.y - 9)
-            var fromPt  = bankLabel.mapToItem(flyingChipLayer, 0, 0)
+            // Fly from AI purse → table slot
+            var fromPt  = engine.players.length > seatIndex
+                          ? getPurseCenter(seatIndex)
+                          : bankLabel.mapToItem(flyingChipLayer, 0, 0)
 
-            var comp = Qt.createComponent("../components/FlyingChip.qml")
-            if (comp.status === Component.Ready) {
-                comp.createObject(flyingChipLayer, {
-                    fromX: fromPt.x, fromY: fromPt.y,
-                    toX: slotPt.x,  toY: slotPt.y,
-                    amount: amount, contre: contre
-                })
-            }
+            var chip = acquireChip()
+            chip.fromX = fromPt.x; chip.fromY = fromPt.y
+            chip.toX = slotPt.x; chip.toY = slotPt.y
+            chip.amount = amount; chip.contre = contre; chip.isWin = false
+            chip.visible = true
         }
 
         function onBetWon(seatIndex, rank, amount) {
-            if (seatIndex !== 0 || rank < 1) return
+            if (rank < 1) return
             var slotPos = faroTable.slotCenter(rank)
             var slotPt  = faroTable.mapToItem(flyingChipLayer, slotPos.x - 18, slotPos.y - 18)
-            var toPt    = playerChipsLabel.mapToItem(flyingChipLayer, 0, 0)
+            var toPt    = engine.players.length > seatIndex
+                          ? getPurseCenter(seatIndex)
+                          : playerChipsLabel.mapToItem(flyingChipLayer, 0, 0)
 
-            var comp = Qt.createComponent("../components/FlyingChip.qml")
-            if (comp.status === Component.Ready) {
-                comp.createObject(flyingChipLayer, {
-                    fromX: slotPt.x, fromY: slotPt.y,
-                    toX: toPt.x,    toY: toPt.y,
-                    amount: amount, contre: false
-                })
-            }
+            // Chip 1: bet chip from table slot → purse
+            var chip1 = acquireChip()
+            chip1.fromX = slotPt.x; chip1.fromY = slotPt.y
+            chip1.toX = toPt.x; chip1.toY = toPt.y
+            chip1.amount = amount; chip1.contre = false; chip1.isWin = true
+            chip1.visible = true
+            // Chip 2: winnings from bank → purse
+            var bankPt = bankLabel.mapToItem(flyingChipLayer, 0, 0)
+            var chip2 = acquireChip()
+            chip2.fromX = bankPt.x; chip2.fromY = bankPt.y
+            chip2.toX = toPt.x; chip2.toY = toPt.y
+            chip2.amount = amount; chip2.contre = false; chip2.isWin = true
+            chip2.visible = true
         }
 
         function onBetLost(seatIndex, rank, amount) {
-            if (seatIndex !== 0 || rank < 1) return
+            if (rank < 1) return
             var slotPos = faroTable.slotCenter(rank)
             var slotPt  = faroTable.mapToItem(flyingChipLayer, slotPos.x - 18, slotPos.y - 18)
             var toPt    = bankLabel.mapToItem(flyingChipLayer, 0, 0)
 
-            var comp = Qt.createComponent("../components/FlyingChip.qml")
-            if (comp.status === Component.Ready) {
-                comp.createObject(flyingChipLayer, {
-                    fromX: slotPt.x, fromY: slotPt.y,
-                    toX: toPt.x,    toY: toPt.y,
-                    amount: amount, contre: false
-                })
-            }
+            var chip = acquireChip()
+            chip.fromX = slotPt.x; chip.fromY = slotPt.y
+            chip.toX = toPt.x; chip.toY = toPt.y
+            chip.amount = amount; chip.contre = false; chip.isWin = false
+            chip.visible = true
         }
     }
 

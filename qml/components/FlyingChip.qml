@@ -9,9 +9,17 @@ Item {
     property real toY:    0
     property int  amount: 1
     property bool contre: false
+    property bool isWin:  false
 
     width: 36; height: 36
     x: fromX; y: fromY
+
+    onVisibleChanged: {
+        if (visible) {
+            x = fromX; y = fromY; opacity = 1
+            flyAnim.restart()
+        }
+    }
 
     BettingChip {
         anchors.fill: parent
@@ -21,24 +29,26 @@ Item {
 
     ParallelAnimation {
         id: flyAnim
-        running: true
+        running: false
 
         NumberAnimation {
             target: flyingChip; property: "x"
             to: flyingChip.toX
-            duration: 420; easing.type: Easing.InOutCubic
+            duration: flyingChip.isWin ? 600 : 800
+            easing.type: flyingChip.isWin ? Easing.OutBack : Easing.InQuad
         }
         NumberAnimation {
             target: flyingChip; property: "y"
             to: flyingChip.toY
-            duration: 420; easing.type: Easing.InOutCubic
+            duration: flyingChip.isWin ? 600 : 800
+            easing.type: flyingChip.isWin ? Easing.OutBack : Easing.InQuad
         }
         NumberAnimation {
             target: flyingChip; property: "opacity"
-            from: 1; to: 0
-            duration: 420
+            from: 1; to: flyingChip.isWin ? 0.9 : 0
+            duration: flyingChip.isWin ? 600 : 800
         }
 
-        onFinished: flyingChip.destroy()
+        onFinished: flyingChip.visible = false
     }
 }

@@ -81,19 +81,16 @@ Item {
                         function onCardDealt(cardRank, cardSuit, isWinner) {
                             if (!isWinner) {
                                 loserCardVisual.opacity = 0
-                                loserSlideAnim.restart()
+                                loserRevealAnim.restart()
                             }
                         }
                     }
 
+                    // Wait for FlyingCard to land (950 ms), then fade in and stay visible
                     SequentialAnimation {
-                        id: loserSlideAnim
-                        PropertyAction { target: loserCardVisual; property: "x"; value: -80 }
-                        PropertyAction { target: loserCardVisual; property: "opacity"; value: 0 }
-                        ParallelAnimation {
-                            NumberAnimation { target: loserCardVisual; property: "x"; to: 0; duration: 320; easing.type: Easing.OutCubic }
-                            NumberAnimation { target: loserCardVisual; property: "opacity"; to: 1; duration: 200 }
-                        }
+                        id: loserRevealAnim
+                        PauseAnimation  { duration: 950 }
+                        NumberAnimation { target: loserCardVisual; property: "opacity"; to: 1; duration: 150 }
                     }
                 }
 
@@ -183,19 +180,16 @@ Item {
                         function onCardDealt(cardRank, cardSuit, isWinner) {
                             if (isWinner) {
                                 winnerCardVisual.opacity = 0
-                                winnerSlideAnim.restart()
+                                winnerRevealAnim.restart()
                             }
                         }
                     }
 
+                    // Wait for FlyingCard to land (950 ms), then fade in and stay visible
                     SequentialAnimation {
-                        id: winnerSlideAnim
-                        PropertyAction { target: winnerCardVisual; property: "x"; value: -80 }
-                        PropertyAction { target: winnerCardVisual; property: "opacity"; value: 0 }
-                        ParallelAnimation {
-                            NumberAnimation { target: winnerCardVisual; property: "x"; to: 0; duration: 320; easing.type: Easing.OutCubic }
-                            NumberAnimation { target: winnerCardVisual; property: "opacity"; to: 1; duration: 200 }
-                        }
+                        id: winnerRevealAnim
+                        PauseAnimation  { duration: 950 }
+                        NumberAnimation { target: winnerCardVisual; property: "opacity"; to: 1; duration: 150 }
                     }
                 }
 

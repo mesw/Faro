@@ -81,7 +81,10 @@ Rectangle {
                 height: 26
 
                 readonly property int cardRank: modelData.rank
-                readonly property int shownCount: engine.cardsShownForRank(cardRank)
+                readonly property int shownCount: {
+                    engine.cardsRemaining  // re-evaluate whenever deck changes
+                    return engine.cardsShownForRank(cardRank)
+                }
                 readonly property bool allShown: shownCount >= 4
 
                 // Background highlight for dead ranks
@@ -133,6 +136,7 @@ Rectangle {
 
                                 readonly property bool isShown: index < shownCount
                                 readonly property var cardInfo: {
+                                    engine.cardsRemaining  // re-evaluate whenever deck changes
                                     if (!isShown) return null;
                                     var cards = engine.getShownCardsForRank(cardRank);
                                     return index < cards.length ? cards[index] : null;

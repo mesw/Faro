@@ -40,7 +40,7 @@ Build artifact: `FaroGame` (or `FaroGame.exe` on Windows). All QML files and PNG
 └─────────────────────┘
 ```
 
-Constraints: ASYNCIFY enabled, 128 MB memory limit. Serve with any static file server (e.g. `python3 -m http.server 8080`).
+Constraints: ASYNCIFY enabled, 256 MB initial heap + `ALLOW_MEMORY_GROWTH=1` (heap grows on demand beyond 256 MB). Ambient effects are disabled on WASM at runtime via `Qt.platform.os === "wasm"`: film grain is turned off and dust particles are capped at 8 (vs. 30 on desktop). Serve with any static file server (e.g. `python3 -m http.server 8080`).
 
 ## Raspberry Pi
 

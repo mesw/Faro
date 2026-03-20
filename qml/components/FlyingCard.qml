@@ -9,9 +9,19 @@ Item {
     property real toY:   0
     property int  cardRank: 1
     property int  cardSuit: 0
+    property real endRotation: (Math.random() > 0.5 ? 1 : -1) * (5 + Math.random() * 12)
 
     width: 70; height: 100
     x: fromX; y: fromY
+    transformOrigin: Item.Center
+
+    onVisibleChanged: {
+        if (visible) {
+            x = fromX; y = fromY; rotation = 0
+            endRotation = (Math.random() > 0.5 ? 1 : -1) * (5 + Math.random() * 12)
+            flyAnim.restart()
+        }
+    }
 
     Card {
         anchors.fill: parent
@@ -22,19 +32,24 @@ Item {
 
     ParallelAnimation {
         id: flyAnim
-        running: true
+        running: false
 
         NumberAnimation {
             target: flyingCard; property: "x"
             to: flyingCard.toX
-            duration: 380; easing.type: Easing.OutCubic
+            duration: 1000; easing.type: Easing.OutCubic
         }
         NumberAnimation {
             target: flyingCard; property: "y"
             to: flyingCard.toY
-            duration: 380; easing.type: Easing.OutCubic
+            duration: 1000; easing.type: Easing.OutCubic
+        }
+        NumberAnimation {
+            target: flyingCard; property: "rotation"
+            to: flyingCard.endRotation
+            duration: 1000; easing.type: Easing.OutSine
         }
 
-        onFinished: flyingCard.destroy()
+        onFinished: flyingCard.visible = false
     }
 }

@@ -30,6 +30,9 @@ ApplicationWindow {
     readonly property string bodyFont:    "'Crimson Text', 'Times New Roman', serif"
     readonly property string monoFont:    "'JetBrains Mono', 'Courier New', monospace"
 
+    // ── Platform detection ──
+    readonly property bool isWasm: Qt.platform.os === "wasm"
+
     // ── Game Engine ──
     GameEngine { id: gameEngine }
 
@@ -47,11 +50,19 @@ ApplicationWindow {
     Canvas {
         id: grainCanvas; anchors.fill: parent; opacity: 0.04; z: 100
         property int frame: 0
-        Timer { interval: 150; running: true; repeat: true; onTriggered: { grainCanvas.frame++; grainCanvas.requestPaint() } }
+        property var cachedImageData: null
+        Timer {
+            interval: root.isWasm ? 0 : 400
+            running: !root.isWasm
+            repeat: true
+            onTriggered: { grainCanvas.frame++; grainCanvas.requestPaint() }
+        }
         onPaint: {
             var ctx = getContext("2d"); var w = width; var h = height
             ctx.clearRect(0, 0, w, h)
-            var imgData = ctx.createImageData(w, h)
+            if (!cachedImageData || cachedImageData.width !== w)
+                cachedImageData = ctx.createImageData(w, h)
+            var imgData = cachedImageData
             for (var i = 0; i < imgData.data.length; i += 16) {
                 var v = Math.random() * 255
                 imgData.data[i] = v; imgData.data[i+1] = v; imgData.data[i+2] = v; imgData.data[i+3] = 40
@@ -62,7 +73,7 @@ ApplicationWindow {
 
     // Dust particles
     Repeater {
-        model: 30
+        model: root.isWasm ? 8 : 30
         Rectangle {
             id: dustParticle
             readonly property real startX: Math.random() * root.width

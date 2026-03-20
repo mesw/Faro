@@ -275,9 +275,30 @@ void GameEngine::onAIBetsReady(int seatIndex, QVariantMap bets)
 
 // ── placeBet / removeBet / placeHighCardBet ──────────────────────────────────
 
+void GameEngine::setAutopilot(bool v)
+{
+    if (m_autopilot != v) {
+        m_autopilot = v;
+        emit autopilotChanged();
+    }
+}
+
+void GameEngine::rejoinPlayer(int seatIndex)
+{
+    if (seatIndex < 0 || seatIndex >= m_players.size()) return;
+    PlayerModel* p = m_players[seatIndex];
+    if (p->chips() > 0) return;  // already active
+    int cost = AppSettings::instance()->startingChips();
+    if (m_bankerChips < cost) return;
+    m_bankerChips -= cost;
+    emit bankerChipsChanged();
+    p->setChips(cost);
+    emit playerRejoinedGame(seatIndex);
+}
+
 void GameEngine::placeBet(int rank, int amount, bool contre)
 {
-    if (!m_bettingPhase || m_players.isEmpty()) return;
+    if (m_gameState == GameOver || m_players.isEmpty()) return;
     if (amount <= 0 || amount > m_players[0]->chips()) return;
     if (rank < Card::Ace || rank > Card::King) return;
     if (m_caseKeeperData.contains(rank) && m_caseKeeperData[rank].size() >= 4) return;
@@ -295,7 +316,7 @@ void GameEngine::placeBet(int rank, int amount, bool contre)
 
 void GameEngine::removeBet(int rank)
 {
-    if (!m_bettingPhase || m_players.isEmpty()) return;
+    if (m_gameState == GameOver || m_players.isEmpty()) return;
     QVariantMap bets = m_players[0]->currentBets();
     bets.remove(QString::number(rank));
     m_players[0]->setCurrentBets(bets);
@@ -303,7 +324,7 @@ void GameEngine::removeBet(int rank)
 
 void GameEngine::placeHighCardBet(int amount, bool contre)
 {
-    if (!m_bettingPhase || m_players.isEmpty()) return;
+    if (m_gameState == GameOver || m_players.isEmpty()) return;
     if (amount <= 0 || amount > m_players[0]->chips()) return;
     QVariantMap bets = m_players[0]->currentBets();
     QVariantMap bet;
@@ -328,11 +349,7 @@ void GameEngine::confirmBets()
     m_bettingPhase = false;
     emit bettingPhaseChanged();
 
-    if (m_deck.size() == 3) {
-        setGameState(LastThreeBetting);
-    } else {
-        setGameState(Dealing);
-    }
+    setGameState(Dealing);
 }
 
 void GameEngine::dealTurn()
@@ -366,10 +383,22 @@ void GameEngine::dealTurn()
     if (m_loserCard->rank() == m_winnerCard->rank())
         emit doubletOccurred(m_loserCard->rank());
 
-    settleBets();
+    // Lock betting during card + chip animation (1s + 1s)
+    m_bettingLocked = true;
+    emit bettingLockedChanged();
 
-    if (m_gameState != GameOver)
-        setGameState(TurnResult);
+    // After 1s card animation: settle bets (fires betWon/betLost chip animations)
+    QTimer::singleShot(1000, this, [this]() {
+        settleBets();
+
+        // After 1s chip animation: unlock betting and start next round immediately
+        QTimer::singleShot(1000, this, [this]() {
+            m_bettingLocked = false;
+            emit bettingLockedChanged();
+            if (m_gameState != GameOver)
+                nextBettingRound();
+        });
+    });
 }
 
 // ── settleBets ────────────────────────────────────────────────────────────────
@@ -528,7 +557,7 @@ void GameEngine::nextBettingRound()
         setGameState(GameOver);
         return;
     }
-    if (m_deck.size() <= 1) {
+    if (m_deck.size() < 2) {
         setGameState(GameOver);
         return;
     }
@@ -536,13 +565,9 @@ void GameEngine::nextBettingRound()
     m_bettingPhase = true;
     emit bettingPhaseChanged();
 
-    if (m_deck.size() == 3) {
-        setGameState(LastThreeBetting);
-    } else {
-        setGameState(Betting);
-        startBettingTimer();
-        startAIBetting();
-    }
+    setGameState(Betting);
+    startBettingTimer();
+    startAIBetting();
 }
 
 // ── placeLastThreeBet ─────────────────────────────────────────────────────────
@@ -702,6 +727,17 @@ int GameEngine::cardsShownForRank(int rank) const
 QVariantList GameEngine::getShownCardsForRank(int rank) const
 {
     return m_caseKeeperData.value(rank);
+}
+
+QVariantList GameEngine::aiBetsForRank(int rank) const
+{
+    QVariantList result;
+    for (const auto &entry : m_allPlayerBets) {
+        const QVariantMap m = entry.toMap();
+        if (m["rank"].toInt() == rank && m["seatIndex"].toInt() > 0)
+            result.append(entry);
+    }
+    return result;
 }
 
 QVariantList GameEngine::getRemainingThree() const

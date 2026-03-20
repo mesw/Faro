@@ -41,7 +41,7 @@ signals:
 private:
     static AppSettings* s_instance;
 
-    int     m_bettingTimerMs = 20000;   // 20 s default
+    int     m_bettingTimerMs = 3000;   // 3 s default
     int     m_aiPlayerCount  = 2;
     QString m_serverUrl;
     int     m_startingChips  = 100;

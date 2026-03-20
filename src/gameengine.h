@@ -101,6 +101,8 @@ class GameEngine : public QObject
     Q_PROPERTY(bool         bankBrokenState       READ bankBrokenState       NOTIFY bankBrokenStateChanged)
     Q_PROPERTY(QVariantList leaderboard           READ leaderboard           NOTIFY leaderboardChanged)
     Q_PROPERTY(int          initialBankChips      READ initialBankChips      NOTIFY initialBankChipsChanged)
+    Q_PROPERTY(bool         bettingLocked         READ bettingLocked         NOTIFY bettingLockedChanged)
+    Q_PROPERTY(bool         autopilot             READ autopilot             WRITE setAutopilot NOTIFY autopilotChanged)
 
 public:
     explicit GameEngine(QObject *parent = nullptr);
@@ -156,10 +158,17 @@ public:
     // ── New methods ──
     Q_INVOKABLE void startNewRound();
     Q_INVOKABLE void submitLeaderboardEntry(const QString& initials);
+    Q_INVOKABLE void rejoinPlayer(int seatIndex);
+
+    // ── Phase B additions ──
+    bool autopilot()     const { return m_autopilot; }
+    void setAutopilot(bool v);
+    bool bettingLocked() const { return m_bettingLocked; }
 
     // ── Case keeper queries ──
     Q_INVOKABLE int          cardsShownForRank(int rank) const;
     Q_INVOKABLE QVariantList getShownCardsForRank(int rank) const;
+    Q_INVOKABLE QVariantList aiBetsForRank(int rank) const;
     Q_INVOKABLE QVariantList getRemainingThree() const;
 
     // ── Card info helpers ──
@@ -204,6 +213,9 @@ signals:
     void bankBrokenStateChanged();
     void leaderboardChanged();
     void initialBankChipsChanged();
+    void bettingLockedChanged();
+    void autopilotChanged();
+    void playerRejoinedGame(int seatIndex);
 
 private slots:
     void onBettingTimerFired();
@@ -258,6 +270,10 @@ private:
 
     // Leaderboard (offline)
     QVariantList m_leaderboard;
+
+    // Phase B
+    bool m_bettingLocked = false;
+    bool m_autopilot     = true;
 };
 
 #endif // GAMEENGINE_H
