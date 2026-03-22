@@ -216,6 +216,7 @@ signals:
     void bettingLockedChanged();
     void autopilotChanged();
     void playerRejoinedGame(int seatIndex);
+    void playerBust(int seatIndex);
 
 private slots:
     void onBettingTimerFired();
@@ -246,6 +247,11 @@ private:
     Card* m_winnerCard = nullptr;
 
     bool m_bettingPhase = false;
+
+    // Snapshot of bets at the moment confirmBets() fires.
+    // Only these bets are eligible for settlement; bets placed during the
+    // dealing animation are not in the snapshot and always carry over.
+    QMap<int, QVariantMap> m_confirmedBets;   // key = seatIndex
 
     // Multi-player
     QList<PlayerModel*> m_players;

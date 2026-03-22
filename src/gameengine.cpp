@@ -242,26 +242,33 @@ void GameEngine::onAIBetsReady(int seatIndex, QVariantMap bets)
 
     PlayerModel* player = m_players[seatIndex];
 
-    // Validate bets against player's stack
+    // Refund existing (carry-over) bets before applying new set
+    QVariantMap existingBets = player->currentBets();
+    int refund = 0;
+    for (auto it = existingBets.constBegin(); it != existingBets.constEnd(); ++it)
+        refund += it.value().toMap()["amount"].toInt();
+
+    // Validate bets against player's stack (after refund)
     QVariantMap validated;
-    int stack = player->chips();
+    int stack = player->chips() + refund;
     int used  = 0;
     for (auto it = bets.constBegin(); it != bets.constEnd(); ++it) {
         QVariantMap bet = it.value().toMap();
         int amount = bet["amount"].toInt();
         if (amount > 0 && (used + amount) <= stack) {
-            validated[it.key()] = it.value();
-            used += amount;
             // Also check rank not dead (cartehaute is always valid)
             if (it.key() != "cartehaute") {
                 int rank = it.key().toInt();
                 if (m_caseKeeperData.value(rank).size() >= 4)
-                    validated.remove(it.key());
+                    continue;
             }
+            validated[it.key()] = it.value();
+            used += amount;
         }
     }
 
     player->setCurrentBets(validated);
+    player->setChips(player->chips() + refund - used);
     updateAllPlayerBets();
 
     // Emit aiBetPlaced for each rank bet (for chip animations)
@@ -294,21 +301,31 @@ void GameEngine::rejoinPlayer(int seatIndex)
     emit bankerChipsChanged();
     p->setChips(cost);
     emit playerRejoinedGame(seatIndex);
+    // Resume the betting phase that was paused by the bust
+    if (m_bettingPhase) {
+        startBettingTimer();
+        startAIBetting();
+    }
 }
 
 void GameEngine::placeBet(int rank, int amount, bool contre)
 {
     if (m_gameState == GameOver || m_players.isEmpty()) return;
-    if (amount <= 0 || amount > m_players[0]->chips()) return;
     if (rank < Card::Ace || rank > Card::King) return;
     if (m_caseKeeperData.contains(rank) && m_caseKeeperData[rank].size() >= 4) return;
 
     QVariantMap bets = m_players[0]->currentBets();
+    int oldAmount = 0;
+    if (bets.contains(QString::number(rank)))
+        oldAmount = bets[QString::number(rank)].toMap()["amount"].toInt();
+    if (amount <= 0 || amount > m_players[0]->chips() + oldAmount) return;
+
     QVariantMap bet;
     bet["amount"] = amount;
     bet["contre"] = contre;
     bets[QString::number(rank)] = bet;
     m_players[0]->setCurrentBets(bets);
+    m_players[0]->setChips(m_players[0]->chips() + oldAmount - amount);
     // currentBetsChanged + updateAllPlayerBets emitted via connection
 
     emit betPlaced(0, rank, amount, contre);
@@ -318,20 +335,28 @@ void GameEngine::removeBet(int rank)
 {
     if (m_gameState == GameOver || m_players.isEmpty()) return;
     QVariantMap bets = m_players[0]->currentBets();
-    bets.remove(QString::number(rank));
+    QString key = QString::number(rank);
+    if (!bets.contains(key)) return;
+    int amount = bets[key].toMap()["amount"].toInt();
+    bets.remove(key);
     m_players[0]->setCurrentBets(bets);
+    m_players[0]->setChips(m_players[0]->chips() + amount);
 }
 
 void GameEngine::placeHighCardBet(int amount, bool contre)
 {
     if (m_gameState == GameOver || m_players.isEmpty()) return;
-    if (amount <= 0 || amount > m_players[0]->chips()) return;
     QVariantMap bets = m_players[0]->currentBets();
+    int oldAmount = 0;
+    if (bets.contains("cartehaute"))
+        oldAmount = bets["cartehaute"].toMap()["amount"].toInt();
+    if (amount <= 0 || amount > m_players[0]->chips() + oldAmount) return;
     QVariantMap bet;
     bet["amount"] = amount;
     bet["contre"] = contre;
     bets["cartehaute"] = bet;
     m_players[0]->setCurrentBets(bets);
+    m_players[0]->setChips(m_players[0]->chips() + oldAmount - amount);
     emit betPlaced(0, -1, amount, contre);
 }
 
@@ -345,6 +370,12 @@ void GameEngine::confirmBets()
     // Stop any still-thinking AI
     for (AIPlayer* ai : m_aiPlayers)
         ai->cancelBetting();
+
+    // Snapshot bets so only confirmed bets are settled; bets placed during
+    // the dealing animation are excluded and always carry over to the next round.
+    m_confirmedBets.clear();
+    for (PlayerModel* player : m_players)
+        m_confirmedBets[player->seatIndex()] = player->currentBets();
 
     m_bettingPhase = false;
     emit bettingPhaseChanged();
@@ -412,9 +443,12 @@ void GameEngine::settleBets()
 
     for (PlayerModel* player : m_players) {
         int seat = player->seatIndex();
-        QVariantMap playerBets = player->currentBets();
-        int playerWinnings = 0;
-        int playerLosses   = 0;
+        // Use the confirmed snapshot — bets placed during dealing are excluded
+        // and will carry over untouched to the next round.
+        QVariantMap playerBets = m_confirmedBets.value(seat);
+        int playerChipDelta = 0;  // chips to add back (bets already deducted at placement)
+        int profitWinnings  = 0;  // for playerWon signal / m_lastWinAmount
+        int profitLosses    = 0;  // for playerLost signal / m_lastWinAmount
 
         for (auto it = playerBets.constBegin(); it != playerBets.constEnd(); ++it) {
             QString key    = it.key();
@@ -427,15 +461,20 @@ void GameEngine::settleBets()
                 bool betWins = contre ? !winnerHigher : winnerHigher;
                 if (isSplit) {
                     int loss = amount / 2;
-                    playerLosses += loss;
+                    playerChipDelta += amount - loss;  // return surviving half
+                    profitLosses    += loss;
+                    totalBankGain   += loss;
                     if (seat == 0) results.append(QString("Carte haute : doublet, perdu %1").arg(loss));
                     emit betLost(seat, -1, loss);
                 } else if (betWins) {
-                    playerWinnings += amount;
+                    playerChipDelta += amount * 2;     // return bet + equal profit
+                    profitWinnings  += amount;
+                    totalBankPayout += amount;
                     if (seat == 0) results.append(QString("Carte haute : gagné %1 !").arg(amount));
                     emit betWon(seat, -1, amount);
                 } else {
-                    playerLosses += amount;
+                    profitLosses  += amount;           // bet already gone, bank gains it
+                    totalBankGain += amount;
                     if (seat == 0) results.append(QString("Carte haute : perdu %1").arg(amount));
                     emit betLost(seat, -1, amount);
                 }
@@ -446,7 +485,9 @@ void GameEngine::settleBets()
 
             if (isSplit && rank == m_loserCard->rank()) {
                 int loss = amount / 2;
-                playerLosses += loss;
+                playerChipDelta += amount - loss;  // return surviving half
+                profitLosses    += loss;
+                totalBankGain   += loss;
                 if (seat == 0)
                     results.append(QString("%1 : doublet ! Perdu %2").arg(rankToString(rank)).arg(loss));
                 emit betLost(seat, rank, loss);
@@ -458,24 +499,30 @@ void GameEngine::settleBets()
 
             if (isWinner) {
                 if (contre) {
-                    playerLosses += amount;
+                    profitLosses  += amount;
+                    totalBankGain += amount;
                     if (seat == 0)
                         results.append(QString("%1 : à contre, perdu %2").arg(rankToString(rank)).arg(amount));
                     emit betLost(seat, rank, amount);
                 } else {
-                    playerWinnings += amount;
+                    playerChipDelta += amount * 2;
+                    profitWinnings  += amount;
+                    totalBankPayout += amount;
                     if (seat == 0)
                         results.append(QString("%1 : gagné %2 !").arg(rankToString(rank)).arg(amount));
                     emit betWon(seat, rank, amount);
                 }
             } else if (isLoser) {
                 if (contre) {
-                    playerWinnings += amount;
+                    playerChipDelta += amount * 2;
+                    profitWinnings  += amount;
+                    totalBankPayout += amount;
                     if (seat == 0)
                         results.append(QString("%1 : à contre, gagné %2 !").arg(rankToString(rank)).arg(amount));
                     emit betWon(seat, rank, amount);
                 } else {
-                    playerLosses += amount;
+                    profitLosses  += amount;
+                    totalBankGain += amount;
                     if (seat == 0)
                         results.append(QString("%1 : perdu %2").arg(rankToString(rank)).arg(amount));
                     emit betLost(seat, rank, amount);
@@ -484,18 +531,15 @@ void GameEngine::settleBets()
             // bets on other ranks carry over — no chip change
         }
 
-        int net = playerWinnings - playerLosses;
-        player->setChips(player->chips() + net);
+        player->setChips(player->chips() + playerChipDelta);
 
-        if (net > 0) {
-            totalBankPayout += net;
-            emit playerWon(seat, net);
-        } else if (net < 0) {
-            totalBankGain += (-net);
-            emit playerLost(seat, -net);
-        }
+        int profitNet = profitWinnings - profitLosses;
+        if (profitNet > 0)
+            emit playerWon(seat, profitNet);
+        else if (profitNet < 0)
+            emit playerLost(seat, -profitNet);
 
-        if (seat == 0) m_lastWinAmount = net;
+        if (seat == 0) m_lastWinAmount = profitNet;
     }
 
     m_bankerChips = m_bankerChips - totalBankPayout + totalBankGain;
@@ -536,26 +580,47 @@ void GameEngine::settleBets()
 
 void GameEngine::nextBettingRound()
 {
-    // Carry over unmatched bets for all players
+    // Carry over bets for all players.
+    // A bet is dropped only if it was confirmed (present when the deal started)
+    // AND its rank was matched this round (i.e. it was settled in settleBets).
+    // Bets placed during the dealing animation are not in the confirmed snapshot
+    // and always carry over regardless of which ranks were drawn.
     for (PlayerModel* player : m_players) {
         QVariantMap carried;
-        QVariantMap bets = player->currentBets();
+        QVariantMap bets      = player->currentBets();
+        QVariantMap confirmed = m_confirmedBets.value(player->seatIndex());
         for (auto it = bets.constBegin(); it != bets.constEnd(); ++it) {
             QString key = it.key();
-            if (key == "cartehaute") continue;
-            int rank = key.toInt();
-            bool matched = (m_loserCard  && rank == m_loserCard->rank()) ||
-                           (m_winnerCard && rank == m_winnerCard->rank());
-            if (!matched) carried[key] = it.value();
+            if (key == "cartehaute") continue;  // per-deal bet, never carries over
+            if (confirmed.contains(key)) {
+                // Confirmed bet: only drop if it was matched (and therefore settled)
+                int rank = key.toInt();
+                bool matched = (m_loserCard  && rank == m_loserCard->rank()) ||
+                               (m_winnerCard && rank == m_winnerCard->rank());
+                if (!matched) carried[key] = it.value();
+            } else {
+                // Placed during dealing — always carry over
+                carried[key] = it.value();
+            }
         }
         player->setCurrentBets(carried);
     }
     updateAllPlayerBets();
     emit currentBetsChanged();
 
-    if (!m_players.isEmpty() && m_players[0]->chips() <= 0) {
-        setGameState(GameOver);
-        return;
+    if (!m_players.isEmpty()) {
+        int effective = m_players[0]->chips();
+        const QVariantMap& cb = m_players[0]->currentBets();
+        for (auto it = cb.constBegin(); it != cb.constEnd(); ++it)
+            effective += it.value().toMap()["amount"].toInt();
+        if (effective <= 0) {
+            // Player is fully bust — pause in Betting state and let QML show the rejoin overlay
+            m_bettingPhase = true;
+            emit bettingPhaseChanged();
+            setGameState(Betting);
+            emit playerBust(0);
+            return;
+        }
     }
     if (m_deck.size() < 2) {
         setGameState(GameOver);
@@ -598,6 +663,11 @@ void GameEngine::placeLastThreeBet(int first, int second, int third, int amount)
     m_caseKeeperData[m_loserCard->rank()].append(li);
     QVariantMap wi; wi["suit"] = m_winnerCard->suit(); wi["type"] = "winner";
     m_caseKeeperData[m_winnerCard->rank()].append(wi);
+
+    // Snapshot all current carry-over bets so settleBets settles them correctly
+    m_confirmedBets.clear();
+    for (PlayerModel* player : m_players)
+        m_confirmedBets[player->seatIndex()] = player->currentBets();
 
     settleBets();
 

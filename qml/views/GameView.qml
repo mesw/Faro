@@ -641,6 +641,89 @@ Item {
         NumberAnimation on opacity { running: helpOverlay.visible; from: 0; to: 1; duration: 250; easing.type: Easing.OutCubic }
     }
 
+    // ── Player bust overlay ───────────────────────────────────────────────────
+    Rectangle {
+        id: bustOverlay
+        anchors.fill: parent; z: 190
+        visible: false
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: "#cc200c0c" }
+            GradientStop { position: 1.0; color: "#cc0a0608" }
+        }
+
+        Connections {
+            target: engine
+            function onPlayerBust(seatIndex) {
+                if (seatIndex === 0) {
+                    bustOverlay.visible = true
+                    bustFadeIn.running  = true
+                }
+            }
+            function onPlayerRejoinedGame(seatIndex) {
+                if (seatIndex === 0) bustOverlay.visible = false
+            }
+        }
+
+        NumberAnimation { id: bustFadeIn; target: bustOverlay; property: "opacity"; from: 0; to: 1; duration: 600; easing.type: Easing.OutCubic }
+
+        Column {
+            anchors.centerIn: parent
+            spacing: 20
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "BOURSE VIDE"
+                font.family: root.displayFont; font.pixelSize: 48; font.letterSpacing: 6
+                color: root.cardRed
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Vos jetons sont épuisés."
+                font.family: root.bodyFont; font.pixelSize: 18; font.italic: true
+                color: root.ivoryWhite; opacity: 0.7
+            }
+
+            Item { width: 1; height: 16 }
+
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: 16
+
+                Rectangle {
+                    width: 200; height: 48; radius: 6
+                    gradient: Gradient {
+                        GradientStop { position: 0; color: root.goldAccent }
+                        GradientStop { position: 1; color: root.goldDim }
+                    }
+                    Text {
+                        anchors.centerIn: parent; text: "REVENIR"
+                        font.family: root.bodyFont; font.pixelSize: 14; font.letterSpacing: 3
+                        color: root.shadowBlack
+                    }
+                    MouseArea {
+                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        onClicked: engine.rejoinPlayer(0)
+                    }
+                }
+
+                Rectangle {
+                    width: 200; height: 48; radius: 6
+                    color: "transparent"; border.color: root.goldDim; border.width: 1
+                    Text {
+                        anchors.centerIn: parent; text: "QUITTER LA TABLE"
+                        font.family: root.bodyFont; font.pixelSize: 14; font.letterSpacing: 3
+                        color: root.goldAccent
+                    }
+                    MouseArea {
+                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        onClicked: gameRoot.backToTitle()
+                    }
+                }
+            }
+        }
+    }
+
     // ── Win/Loss flash overlay ────────────────────────────────────────────────
     Rectangle {
         id: flashOverlay

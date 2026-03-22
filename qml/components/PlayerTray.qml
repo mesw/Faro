@@ -127,24 +127,6 @@ Item {
                         }
                     }
 
-                    // REVENIR button — human only when chips = 0
-                    Rectangle {
-                        visible: isHuman && !isActive
-                        width: 90; height: 26; radius: 6
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        color: root.goldAccent
-
-                        Text {
-                            anchors.centerIn: parent; text: "REVENIR"
-                            font.family: root.bodyFont; font.pixelSize: 9; font.letterSpacing: 2
-                            color: root.shadowBlack
-                        }
-                        MouseArea {
-                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                            onClicked: engine.rejoinPlayer(0)
-                        }
-                    }
-
                     // "Réfléchit…" — AI only when thinking
                     Text {
                         visible: !isHuman && playerModel && playerModel.isThinking
