@@ -171,7 +171,7 @@ ApplicationWindow {
                     engine.startNewRound()
                     viewStack.pop()
                 } else {
-                    gameEngine.startNewGame(AppSettings.startingChips, AppSettings.aiPlayerCount)
+                    gameEngine.startNewGame(gameEngine.playerChips, AppSettings.aiPlayerCount)
                     viewStack.pop()
                 }
             }

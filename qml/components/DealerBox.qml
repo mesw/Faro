@@ -86,10 +86,10 @@ Item {
                         }
                     }
 
-                    // Wait for FlyingCard to land (950 ms), then fade in and stay visible
+                    // Wait for FlyingCard to land (1950 ms), then fade in and stay visible
                     SequentialAnimation {
                         id: loserRevealAnim
-                        PauseAnimation  { duration: 950 }
+                        PauseAnimation  { duration: 1950 }
                         NumberAnimation { target: loserCardVisual; property: "opacity"; to: 1; duration: 150 }
                     }
                 }
@@ -185,10 +185,10 @@ Item {
                         }
                     }
 
-                    // Wait for FlyingCard to land (950 ms), then fade in and stay visible
+                    // Wait for FlyingCard to land (1950 ms), then fade in and stay visible
                     SequentialAnimation {
                         id: winnerRevealAnim
-                        PauseAnimation  { duration: 950 }
+                        PauseAnimation  { duration: 1950 }
                         NumberAnimation { target: winnerCardVisual; property: "opacity"; to: 1; duration: 150 }
                     }
                 }

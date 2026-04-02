@@ -37,17 +37,17 @@ Item {
         NumberAnimation {
             target: flyingCard; property: "x"
             to: flyingCard.toX
-            duration: 1000; easing.type: Easing.OutCubic
+            duration: 2000; easing.type: Easing.OutCubic
         }
         NumberAnimation {
             target: flyingCard; property: "y"
             to: flyingCard.toY
-            duration: 1000; easing.type: Easing.OutCubic
+            duration: 2000; easing.type: Easing.OutCubic
         }
         NumberAnimation {
             target: flyingCard; property: "rotation"
             to: flyingCard.endRotation
-            duration: 1000; easing.type: Easing.OutSine
+            duration: 2000; easing.type: Easing.OutSine
         }
 
         onFinished: flyingCard.visible = false

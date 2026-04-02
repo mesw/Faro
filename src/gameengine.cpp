@@ -328,6 +328,14 @@ void GameEngine::placeBet(int rank, int amount, bool contre)
     m_players[0]->setChips(m_players[0]->chips() + oldAmount - amount);
     // currentBetsChanged + updateAllPlayerBets emitted via connection
 
+    // Cheat bet: register into the confirmed snapshot so the bet is settled
+    // against the current deal rather than silently carrying over.
+    if (m_gameState == Dealing) {
+        QVariantMap confirmed = m_confirmedBets.value(0);
+        confirmed[QString::number(rank)] = bet;
+        m_confirmedBets[0] = confirmed;
+    }
+
     emit betPlaced(0, rank, amount, contre);
 }
 
@@ -357,6 +365,14 @@ void GameEngine::placeHighCardBet(int amount, bool contre)
     bets["cartehaute"] = bet;
     m_players[0]->setCurrentBets(bets);
     m_players[0]->setChips(m_players[0]->chips() + oldAmount - amount);
+
+    // Cheat bet: also register in confirmed snapshot during dealing animation
+    if (m_gameState == Dealing) {
+        QVariantMap confirmed = m_confirmedBets.value(0);
+        confirmed["cartehaute"] = bet;
+        m_confirmedBets[0] = confirmed;
+    }
+
     emit betPlaced(0, -1, amount, contre);
 }
 
@@ -414,12 +430,12 @@ void GameEngine::dealTurn()
     if (m_loserCard->rank() == m_winnerCard->rank())
         emit doubletOccurred(m_loserCard->rank());
 
-    // Lock betting during card + chip animation (1s + 1s)
+    // Lock betting during card + chip animation (2s + 1s)
     m_bettingLocked = true;
     emit bettingLockedChanged();
 
-    // After 1s card animation: settle bets (fires betWon/betLost chip animations)
-    QTimer::singleShot(1000, this, [this]() {
+    // After 2s card animation: settle bets (fires betWon/betLost chip animations)
+    QTimer::singleShot(2000, this, [this]() {
         settleBets();
 
         // After 1s chip animation: unlock betting and start next round immediately

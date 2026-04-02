@@ -254,14 +254,14 @@ Item {
                 Text { text: "MISE"; font.family: root.bodyFont; font.pixelSize: 11; font.letterSpacing: 3; color: root.goldDim }
                 Item { Layout.fillWidth: true; Layout.preferredHeight: 8 }
 
-                // Bet chip row
-                Row {
-                    spacing: 6; Layout.alignment: Qt.AlignHCenter
+                // Bet chip grid (2 rows × 3 cols)
+                Grid {
+                    columns: 3; spacing: 4; Layout.alignment: Qt.AlignHCenter
                     Repeater {
-                        model: [1, 5, 10, 25]
+                        model: [1, 5, 10, 25, 50, 100]
                         Rectangle {
                             id: betChipBtn
-                            width: 40; height: 36; radius: 6
+                            width: 52; height: 32; radius: 6
                             color: gameRoot.selectedBetAmount === modelData ? root.goldAccent : "#30ffffff"
                             border.color: root.goldDim; border.width: 0.5
                             Text {
@@ -311,7 +311,7 @@ Item {
                     Layout.fillWidth: true; height: 40; radius: 6
                     readonly property var  highCardBet:    engine.currentBets ? engine.currentBets["cartehaute"] : null
                     readonly property bool highCardActive: highCardBet !== undefined && highCardBet !== null
-                    readonly property bool inBetting:      engine.gameState === GameEngine.Betting
+                    readonly property bool inBetting:      engine.gameState === GameEngine.Betting || engine.gameState === GameEngine.Dealing
                     color: highCardActive ? root.goldAccent : "#20ffffff"
                     border.color: highCardActive ? root.goldBright : root.goldDim
                     border.width: highCardActive ? 1 : 0.5
