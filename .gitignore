@@ -1,0 +1,13 @@
+# Qt Creator
+.qtcreator/
+
+# Build output — ignore everything
+build/
+
+# Except the WASM release artifacts needed for GitHub Pages
+!build/WebAssembly_Qt_6_8_3_single_threaded-Release/
+build/WebAssembly_Qt_6_8_3_single_threaded-Release/*
+!build/WebAssembly_Qt_6_8_3_single_threaded-Release/FaroGame.js
+!build/WebAssembly_Qt_6_8_3_single_threaded-Release/FaroGame.wasm
+!build/WebAssembly_Qt_6_8_3_single_threaded-Release/qtloader.js
+!build/WebAssembly_Qt_6_8_3_single_threaded-Release/qtlogo.svg
