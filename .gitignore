@@ -7,6 +7,7 @@ build/
 # Except the WASM release artifacts needed for GitHub Pages
 !build/WebAssembly_Qt_6_8_3_single_threaded-Release/
 build/WebAssembly_Qt_6_8_3_single_threaded-Release/*
+!build/WebAssembly_Qt_6_8_3_single_threaded-Release/FaroGame.html
 !build/WebAssembly_Qt_6_8_3_single_threaded-Release/FaroGame.js
 !build/WebAssembly_Qt_6_8_3_single_threaded-Release/FaroGame.wasm
 !build/WebAssembly_Qt_6_8_3_single_threaded-Release/qtloader.js
