@@ -46,9 +46,14 @@
           ui.style.display = ui === spinner ? 'flex' : 'block';
         };
 
+        const wasmBase = 'build/WebAssembly_Qt_6_8_3_single_threaded-Release/';
         try {
           showUi(spinner);
           const instance = await qtLoad({
+            // Emscripten falls back to window.location when document.currentScript
+            // is null at async execution time. locateFile overrides the .wasm lookup
+            // to point to the correct subdirectory.
+            locateFile: (path) => wasmBase + path,
             qt: {
               onLoaded: () => showUi(screen),
               onExit: exitData => {
